@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
@@ -26,7 +27,12 @@ func (s *APIServer) Run() {
 
 	log.Println("Starting APIServer on port ", s.listenAddr)
 
-	http.ListenAndServe(s.listenAddr, router)
+	headersOk := handlers.AllowedHeaders([]string{"X-Requested-With"})
+	originsOk := handlers.AllowedOrigins([]string{"*"})
+	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+
+	http.ListenAndServe(s.listenAddr, handlers.CORS(originsOk, headersOk, methodsOk)(router))
+
 }
 
 func (s *APIServer) handleBase(w http.ResponseWriter, r *http.Request) error {
