@@ -7,19 +7,21 @@ import (
 type User struct {
 	gorm.Model
 
-	FirstName string
-	LastName  string
+	Name string
 }
 
 type Stash struct {
 	gorm.Model
 
-	Name     string
-	Location string
+	Name     string `json:"name"`
+	Location string `json:"location"`
 }
 
 type Product struct {
 	gorm.Model
 
-	Name string
+	Name    string
+	Price   float64 `json:"price"`
+	StashId int     `json:"stash_id"`
+	Stash   Stash   `json:"stash"`
 }
