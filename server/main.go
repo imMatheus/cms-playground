@@ -1,10 +1,20 @@
 package main
 
-import "fmt"
+import "log"
+
+// A Product contains metadata about a product for sale.
 
 func main() {
-	fmt.Println("Hello world")
+	store, err := NewStore()
 
-	server := NewAPIServer(":4000")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := store.Init(); err != nil {
+		log.Fatal(err)
+	}
+
+	server := NewAPIServer(":4000", store)
 	server.Run()
 }
