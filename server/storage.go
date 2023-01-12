@@ -13,6 +13,7 @@ import (
 type Storage interface {
 	GetAllUsers() ([]*User, error)
 	GetAllStashes() ([]*Stash, error)
+	GetAllProducts() ([]*Product, error)
 }
 
 // A Handler is an HTTP API server handler.
@@ -64,6 +65,17 @@ func (h *Handler) GetAllStashes() ([]*Stash, error) {
 	return stashes, nil
 }
 
+func (h *Handler) GetAllProducts() ([]*Product, error) {
+	var products []*Product
+	result := h.db.Find(&products)
+
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	return products, nil
+}
+
 func (h *Handler) Init() error {
 	fmt.Println("os: ", os.Getenv("environment"))
 	if os.Getenv("environment") == "production" {
@@ -91,6 +103,35 @@ func (h *Handler) Init() error {
 		return err
 	}
 
+	h.db.Create(&Stash{
+		Name:     "Cool things 2",
+		Location: "yo mama house",
+	})
+
+	h.db.Create(&Stash{
+		Name:     "Cool things 2",
+		Location: "yo mama house",
+	})
+	h.db.Create(&Stash{
+		Name:     "Cool things 2",
+		Location: "yo mama house",
+	})
+	h.db.Create(&Product{
+		Name:  "Cool things 2",
+		Price: 45.99,
+	})
+	h.db.Create(&Product{
+		Name:  "Cool things 4",
+		Price: 12.99,
+	})
+	h.db.Create(&Product{
+		Name:  "Cool things 2",
+		Price: 75.00,
+	})
+	h.db.Create(&Product{
+		Name:  "Hat attack",
+		Price: 99,
+	})
 	h.db.Create(&Stash{
 		Name:     "Cool things 2",
 		Location: "yo mama house",

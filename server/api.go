@@ -28,6 +28,7 @@ func (s *APIServer) Run() {
 	router.HandleFunc("/health", makeHTTPHandleFunc(s.handleHealth)).Methods(http.MethodGet)
 	router.HandleFunc("/users", makeHTTPHandleFunc(s.handleGetUsers)).Methods(http.MethodGet)
 	router.HandleFunc("/stashes", makeHTTPHandleFunc(s.handleGetStashes)).Methods(http.MethodGet)
+	router.HandleFunc("/products", makeHTTPHandleFunc(s.handleGetProducts)).Methods(http.MethodGet)
 
 	log.Println("Starting APIServer on port ", s.listenAddr)
 
@@ -48,12 +49,24 @@ func (s *APIServer) handleHealth(w http.ResponseWriter, r *http.Request) error {
 
 func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) error {
 	users, err := s.store.GetAllUsers()
+
 	if err != nil {
 		return err
 	}
 
 	return WriteJSON(w, http.StatusOK, users)
 }
+
+func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) error {
+	products, err := s.store.GetAllProducts()
+
+	if err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, products)
+}
+
 func (s *APIServer) handleGetStashes(w http.ResponseWriter, r *http.Request) error {
 	stashes, err := s.store.GetAllStashes()
 
