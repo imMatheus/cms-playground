@@ -42,40 +42,6 @@ func NewStore() (*Handler, error) {
 	}, nil
 }
 
-func (h *Handler) Init() error {
-	fmt.Println("os: ", os.Getenv("environment"))
-	if os.Getenv("environment") == "production" {
-		return nil
-	}
-
-	fmt.Println("Drop all dbs")
-	h.db.Migrator().DropTable(&User{})
-	h.db.Migrator().DropTable(&Stash{})
-	h.db.Migrator().DropTable(&Product{})
-
-	fmt.Println("Auto migrate user")
-	if err := h.db.AutoMigrate(&User{}); err != nil {
-		return err
-	}
-
-	fmt.Println("Auto migrate stashes")
-	if err := h.db.AutoMigrate(&Stash{}); err != nil {
-		return err
-	}
-
-	fmt.Println("Auto migrate products")
-	if err := h.db.AutoMigrate(&Product{}); err != nil {
-		return err
-	}
-
-	h.db.Create(&Stash{
-		Name:     "Cool things 2",
-		Location: "yo mama house",
-	})
-
-	return nil
-}
-
 func (h *Handler) GetAllUsers() ([]*User, error) {
 	var users []*User
 	result := h.db.Find(&users)
@@ -96,4 +62,44 @@ func (h *Handler) GetAllStashes() ([]*Stash, error) {
 	}
 
 	return stashes, nil
+}
+
+func (h *Handler) Init() error {
+	fmt.Println("os: ", os.Getenv("environment"))
+	if os.Getenv("environment") == "production" {
+		return nil
+	}
+
+	// fmt.Println("Drop all dbs")
+	// h.db.Migrator().DropTable(&User{})
+	// h.db.Migrator().DropTable(&Stash{})
+	// h.db.Migrator().DropTable(&Product{})
+	// h.db.Migrator().DropTable("projects")
+
+	// fmt.Println("Auto migrate user")
+	// if err := h.db.AutoMigrate(&User{}); err != nil {
+	// 	return err
+	// }
+
+	// fmt.Println("Auto migrate stashes")
+	// if err := h.db.AutoMigrate(&Stash{}); err != nil {
+	// 	return err
+	// }
+
+	// fmt.Println("Auto migrate products")
+	// if err := h.db.AutoMigrate(&Product{}); err != nil {
+	// 	return err
+	// }
+
+	// h.db.Create(&Stash{
+	// 	Name:     "Cool things 2",
+	// 	Location: "yo mama house",
+	// })
+
+	// h.db.Create(&User{
+	// 	FirstName: "MAth",
+	// 	LastName:  "Maends",
+	// })
+
+	return nil
 }

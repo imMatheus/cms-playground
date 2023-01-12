@@ -56,6 +56,7 @@ func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) error
 }
 func (s *APIServer) handleGetStashes(w http.ResponseWriter, r *http.Request) error {
 	stashes, err := s.store.GetAllStashes()
+
 	if err != nil {
 		return err
 	}
