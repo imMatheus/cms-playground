@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
@@ -29,6 +31,7 @@ func (s *APIServer) Run() {
 	router.HandleFunc("/users", makeHTTPHandleFunc(s.handleGetUsers)).Methods(http.MethodGet)
 	router.HandleFunc("/stashes", makeHTTPHandleFunc(s.handleGetStashes)).Methods(http.MethodGet)
 	router.HandleFunc("/products", makeHTTPHandleFunc(s.handleGetProducts)).Methods(http.MethodGet)
+	router.HandleFunc("/products/{id}", makeHTTPHandleFunc(s.handleGetProductById)).Methods(http.MethodGet)
 
 	log.Println("Starting APIServer on port ", s.listenAddr)
 
@@ -56,7 +59,6 @@ func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) error
 
 	return WriteJSON(w, http.StatusOK, users)
 }
-
 func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) error {
 	products, err := s.store.GetAllProducts()
 
@@ -65,6 +67,21 @@ func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) er
 	}
 
 	return WriteJSON(w, http.StatusOK, products)
+}
+
+func (s *APIServer) handleGetProductById(w http.ResponseWriter, r *http.Request) error {
+	id, err := getURLParam(r, "id")
+	if err != nil {
+		return err
+	}
+
+	product, err := s.store.GetProductById(id)
+
+	if err != nil {
+		return err
+	}
+
+	return WriteJSON(w, http.StatusOK, product)
 }
 
 func (s *APIServer) handleGetStashes(w http.ResponseWriter, r *http.Request) error {
@@ -95,4 +112,13 @@ func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 			WriteJSON(w, http.StatusBadRequest, ApiError{Error: err.Error()})
 		}
 	}
+}
+
+func getURLParam(r *http.Request, name string) (int, error) {
+	idStr := mux.Vars(r)[name]
+	param, err := strconv.Atoi(idStr)
+	if err != nil {
+		return param, fmt.Errorf("invalid id given %s", idStr)
+	}
+	return param, nil
 }

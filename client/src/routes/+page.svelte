@@ -15,16 +15,14 @@
 	// });
 </script>
 
-<div class="px-4 py-10 md:py-14">
-	<div class="max-w-6xl mx-auto">
-		<h1 class="text-7xl font-semibold font-serif">Find good products,<br /> near you</h1>
+<h1 class="mb-6 font-serif text-7xl font-semibold">Find good products,<br /> near you</h1>
 
-		<div class="grid bg-secondary grid-cols-4">
-			{#each products as product}
-				<div class="p-3 bg-primary">{product.name}</div>
-			{/each}
-		</div>
-
-		<pre>{JSON.stringify(products, null, 2)}</pre>
-	</div>
+<div class="grid grid-cols-4 md:gap-10 gap-2 bg-secondary">
+	{#each products as product}
+		<a href="/product/abc">
+			<div class="bg-primary p-3">{product.name}</div>
+		</a>
+	{/each}
 </div>
+
+<pre>{JSON.stringify(products, null, 2)}</pre>

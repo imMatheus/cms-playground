@@ -1,24 +1,25 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
-	"gorm.io/driver/mysql"
-	"gorm.io/gorm"
 )
 
 type Storage interface {
 	GetAllUsers() ([]*User, error)
 	GetAllStashes() ([]*Stash, error)
 	GetAllProducts() ([]*Product, error)
+	GetProductById(id int) (*Product, error)
 }
 
 // A Handler is an HTTP API server handler.
 type Handler struct {
-	db *gorm.DB
+	db *sql.DB
 }
 
 func NewStore() (*Handler, error) {
@@ -28,12 +29,15 @@ func NewStore() (*Handler, error) {
 	}
 
 	// Connect to PlanetScale database using DSN environment variable.
-	db, err := gorm.Open(mysql.Open(os.Getenv("DSN")), &gorm.Config{
-		DisableForeignKeyConstraintWhenMigrating: true,
-	})
+	db, err := sql.Open("mysql", os.Getenv("DSN"))
 
 	if err != nil {
 		log.Fatalf("failed to connect to PlanetScale: %v", err)
+	}
+
+	if err := db.Ping(); err != nil {
+		log.Fatalf("failed to connect to PlanetScale: %v", err)
+		return nil, err
 	}
 
 	log.Println("Successfully connected to PlanetScale!")
@@ -43,37 +47,157 @@ func NewStore() (*Handler, error) {
 	}, nil
 }
 
-func (h *Handler) GetAllUsers() ([]*User, error) {
-	var users []*User
-	result := h.db.Find(&users)
+func (h *Handler) createStashesTable() error {
+	query := `CREATE TABLE if not exists stash (
+		id int PRIMARY KEY AUTO_INCREMENT,
+		name varchar(255) NOT NULL,
+		location varchar(255) NOT NULL,
+		createdAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		updatedAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+	);`
 
-	if result.Error != nil {
-		return nil, result.Error
+	_, err := h.db.Exec(query)
+	return err
+}
+
+func (h *Handler) createUsersTable() error {
+	query := `CREATE TABLE if not exists user (
+		id int PRIMARY KEY AUTO_INCREMENT,
+		name varchar(255) NOT NULL,
+		image varchar(255) NOT NULL,
+		createdAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		updatedAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+	);`
+
+	_, err := h.db.Exec(query)
+
+	return err
+}
+
+func (h *Handler) createProductsTable() error {
+	query := `CREATE TABLE if not exists product (
+		id int PRIMARY KEY AUTO_INCREMENT,
+		name varchar(255) NOT NULL,
+		price double NOT NULL,
+		stashId int NOT NULL,
+		createdAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		updatedAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+	);`
+
+	_, err := h.db.Exec(query)
+	return err
+}
+
+func (h *Handler) GetAllUsers() ([]*User, error) {
+	rows, err := h.db.Query("select * from user")
+	if err != nil {
+		return nil, err
+	}
+
+	users := []*User{}
+	for rows.Next() {
+		user, err := scanIntoUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
 	}
 
 	return users, nil
 }
 
-func (h *Handler) GetAllStashes() ([]*Stash, error) {
-	var stashes []*Stash
-	result := h.db.Find(&stashes)
+func scanIntoUser(rows *sql.Rows) (*User, error) {
+	user := new(User)
+	err := rows.Scan(
+		&user.ID,
+		&user.Name,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
 
-	if result.Error != nil {
-		return nil, result.Error
+	return user, err
+}
+
+func (h *Handler) GetAllStashes() ([]*Stash, error) {
+	rows, err := h.db.Query("select * from stash")
+	if err != nil {
+		return nil, err
+	}
+
+	stashes := []*Stash{}
+	for rows.Next() {
+		var stash *Stash
+		err := rows.Scan(
+			&stash.ID,
+			&stash.Location,
+			&stash.Name,
+			&stash.CreatedAt,
+			&stash.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		stashes = append(stashes, stash)
 	}
 
 	return stashes, nil
 }
 
-func (h *Handler) GetAllProducts() ([]*Product, error) {
-	var products []*Product
-	result := h.db.Find(&products)
+func scanIntoStash(rows *sql.Rows) (*Stash, error) {
+	stash := new(Stash)
+	err := rows.Scan(
+		&stash.ID,
+		&stash.Location,
+		&stash.Name,
+		&stash.CreatedAt,
+		&stash.UpdatedAt,
+	)
 
-	if result.Error != nil {
-		return nil, result.Error
+	return stash, err
+}
+
+func (h *Handler) GetAllProducts() ([]*Product, error) {
+	rows, err := h.db.Query("select * from product")
+	if err != nil {
+		return nil, err
+	}
+
+	products := []*Product{}
+	for rows.Next() {
+		product, err := scanIntoProduct(rows)
+		if err != nil {
+			return nil, err
+		}
+		products = append(products, product)
 	}
 
 	return products, nil
+}
+
+func (h *Handler) GetProductById(id int) (*Product, error) {
+	rows, err := h.db.Query("select * from product where id = ?", id)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		return scanIntoProduct(rows)
+	}
+
+	return nil, fmt.Errorf("account %d not found", id)
+}
+
+func scanIntoProduct(rows *sql.Rows) (*Product, error) {
+	product := new(Product)
+	err := rows.Scan(
+		&product.ID,
+		&product.Name,
+		&product.Price,
+		&product.CreatedAt,
+		&product.UpdatedAt,
+	)
+
+	return product, err
 }
 
 func (h *Handler) Init() error {
@@ -82,64 +206,24 @@ func (h *Handler) Init() error {
 		return nil
 	}
 
-	fmt.Println("Drop all dbs")
-	h.db.Migrator().DropTable(&User{})
-	h.db.Migrator().DropTable(&Stash{})
-	h.db.Migrator().DropTable(&Product{})
-	h.db.Migrator().DropTable("projects")
+	// fmt.Println("dropping all tables")
+	// h.db.Exec("DROP TABLE user")
+	// h.db.Exec("DROP TABLE stash")
+	// h.db.Exec("DROP TABLE product")
+	// fmt.Println("dropped all tables")
 
-	fmt.Println("Auto migrate user")
-	if err := h.db.AutoMigrate(&User{}); err != nil {
-		return err
-	}
+	// fmt.Println("creating tables")
+	// h.createUsersTable()
+	// h.createStashesTable()
+	// h.createProductsTable()
+	// fmt.Println("just created tables")
 
-	fmt.Println("Auto migrate stashes")
-	if err := h.db.AutoMigrate(&Stash{}); err != nil {
-		return err
-	}
+	// _, err := h.db.Exec("INSERT INTO `stash` (name, location) VALUES ('Mendes store', 'Sweden');")
+	// _, err := h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Red hoodie', 49.99, 1);")
 
-	fmt.Println("Auto migrate products")
-	if err := h.db.AutoMigrate(&Product{}); err != nil {
-		return err
-	}
-
-	h.db.Create(&Stash{
-		Name:     "Cool things 2",
-		Location: "yo mama house",
-	})
-
-	h.db.Create(&Stash{
-		Name:     "Cool things 2",
-		Location: "yo mama house",
-	})
-	h.db.Create(&Stash{
-		Name:     "Cool things 2",
-		Location: "yo mama house",
-	})
-	h.db.Create(&Product{
-		Name:  "Cool things 2",
-		Price: 45.99,
-	})
-	h.db.Create(&Product{
-		Name:  "Cool things 4",
-		Price: 12.99,
-	})
-	h.db.Create(&Product{
-		Name:  "Cool things 2",
-		Price: 75.00,
-	})
-	h.db.Create(&Product{
-		Name:  "Hat attack",
-		Price: 99,
-	})
-	h.db.Create(&Stash{
-		Name:     "Cool things 2",
-		Location: "yo mama house",
-	})
-
-	h.db.Create(&User{
-		Name: "MAth",
-	})
+	// if err != nil {
+	// 	return err
+	// }
 
 	return nil
 }

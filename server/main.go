@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+)
 
 // A Product contains metadata about a product for sale.
 
@@ -11,6 +14,7 @@ func main() {
 		log.Fatal(err)
 	}
 
+	fmt.Println("made it here bitch")
 	if err := store.Init(); err != nil {
 		log.Fatal(err)
 	}

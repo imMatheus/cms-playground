@@ -6,5 +6,11 @@
 	// axios.defaults.baseURL = 'http://localhost:4000';
 </script>
 
-<Navbar />
-<slot />
+<div class="px-4">
+	<div class="mx-auto max-w-6xl">
+		<Navbar />
+		<div class="py-10 md:py-14">
+			<slot />
+		</div>
+	</div>
+</div>

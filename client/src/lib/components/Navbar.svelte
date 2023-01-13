@@ -2,7 +2,7 @@
 </script>
 
 <nav class="px-4 pt-5">
-	<div class="max-w-6xl mx-auto">
-		<h2 class="font-serif font-semibold text-3xl">Stash</h2>
+	<div class="mx-auto max-w-6xl">
+		<h2 class="font-serif text-3xl font-semibold">Stash</h2>
 	</div>
 </nav>
