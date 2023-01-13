@@ -29,6 +29,7 @@ func (s *APIServer) Run() {
 	router.HandleFunc("/", makeHTTPHandleFunc(s.handleBase)).Methods(http.MethodGet)
 	router.HandleFunc("/health", makeHTTPHandleFunc(s.handleHealth)).Methods(http.MethodGet)
 	router.HandleFunc("/users", makeHTTPHandleFunc(s.handleGetUsers)).Methods(http.MethodGet)
+	router.HandleFunc("/stash", makeHTTPHandleFunc(s.handleCreateStash)).Methods(http.MethodPost)
 	router.HandleFunc("/stashes", makeHTTPHandleFunc(s.handleGetStashes)).Methods(http.MethodGet)
 	router.HandleFunc("/products", makeHTTPHandleFunc(s.handleGetProducts)).Methods(http.MethodGet)
 	router.HandleFunc("/products/{id}", makeHTTPHandleFunc(s.handleGetProductById)).Methods(http.MethodGet)
@@ -59,6 +60,7 @@ func (s *APIServer) handleGetUsers(w http.ResponseWriter, r *http.Request) error
 
 	return WriteJSON(w, http.StatusOK, users)
 }
+
 func (s *APIServer) handleGetProducts(w http.ResponseWriter, r *http.Request) error {
 	products, err := s.store.GetAllProducts()
 
@@ -92,6 +94,27 @@ func (s *APIServer) handleGetStashes(w http.ResponseWriter, r *http.Request) err
 	}
 
 	return WriteJSON(w, http.StatusOK, stashes)
+}
+
+func (s *APIServer) handleCreateStash(w http.ResponseWriter, r *http.Request) error {
+	fmt.Println("hellllooo")
+	createStashReq := new(CreateStashRequest)
+	if err := json.NewDecoder(r.Body).Decode(createStashReq); err != nil {
+		return err
+	}
+	fmt.Println("maddddeee 22222")
+
+	fmt.Println("%+v", createStashReq)
+
+	// stash := NewAccount(createAccountReq.FirstName, createAccountReq.LastName)
+	stash, err := s.store.CreateStash(*createStashReq)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("stash %+v", stash)
+
+	return WriteJSON(w, http.StatusOK, stash)
 }
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {

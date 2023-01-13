@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
 	import type { Product } from '$lib/types';
+	import ProductCard from '$lib/components/ProductCard.svelte';
 
 	export let data: { props: Product[] };
 	const products = data.props;
@@ -17,11 +17,11 @@
 
 <h1 class="mb-6 text-7xl font-semibold">Find good products,<br /> near you</h1>
 
-<div class="bg-secondary grid grid-cols-4 gap-2 md:gap-10">
+<div
+	class="grid grid-cols-1 gap-y-10 gap-x-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:gap-x-8"
+>
 	{#each products as product}
-		<a href={`/product/${product.id}`}>
-			<div class="bg-primary p-3">{product.name}</div>
-		</a>
+		<ProductCard {product} />
 	{/each}
 </div>
 

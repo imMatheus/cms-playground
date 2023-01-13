@@ -18,6 +18,11 @@ type Stash struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+type CreateStashRequest struct {
+	Name     string `json:"name"`
+	Location string `json:"location"`
+}
+
 type Product struct {
 	ID        int       `json:"id"`
 	Name      string    `json:"name"`

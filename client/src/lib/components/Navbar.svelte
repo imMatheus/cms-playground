@@ -9,10 +9,10 @@
 			<a href="/" class="text-3xl font-semibold">Stash</a>
 
 			<div class="flex gap-4">
-				<a href="/stashes">Stashes</a>
-				<a href="/stashes/mine">My stashes</a>
+				<a href="/stashes" class="transition-opacity hover:opacity-75">Stashes</a>
+				<a href="/stashes/mine" class="transition-opacity hover:opacity-75">My stashes</a>
 				<button
-					class="flex cursor-pointer items-center gap-1"
+					class="flex cursor-pointer items-center gap-1 transition-opacity hover:opacity-75"
 					on:click={() => {
 						$cartStore.isOpen = true;
 					}}

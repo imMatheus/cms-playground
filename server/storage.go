@@ -13,6 +13,7 @@ import (
 type Storage interface {
 	GetAllUsers() ([]*User, error)
 	GetAllStashes() ([]*Stash, error)
+	CreateStash(stash CreateStashRequest) (*CreateStashResponse, error)
 	GetAllProducts() ([]*Product, error)
 	GetProductById(id int) (*Product, error)
 }
@@ -126,14 +127,7 @@ func (h *Handler) GetAllStashes() ([]*Stash, error) {
 
 	stashes := []*Stash{}
 	for rows.Next() {
-		var stash *Stash
-		err := rows.Scan(
-			&stash.ID,
-			&stash.Location,
-			&stash.Name,
-			&stash.CreatedAt,
-			&stash.UpdatedAt,
-		)
+		stash, err := scanIntoStash(rows)
 		if err != nil {
 			return nil, err
 		}
@@ -141,6 +135,47 @@ func (h *Handler) GetAllStashes() ([]*Stash, error) {
 	}
 
 	return stashes, nil
+}
+
+func scanIntoStash(rows *sql.Rows) (*Stash, error) {
+	stash := new(Stash)
+	err := rows.Scan(
+		&stash.ID,
+		&stash.Name,
+		&stash.Location,
+		&stash.CreatedAt,
+		&stash.UpdatedAt,
+	)
+
+	return stash, err
+}
+
+type CreateStashResponse struct {
+	ID int64 `json:"id"`
+}
+
+func (h *Handler) CreateStash(stash CreateStashRequest) (*CreateStashResponse, error) {
+	query := `INSERT INTO stash
+	(name, location)
+	values (?, ?)`
+
+	resp, err := h.db.Exec(
+		query,
+		stash.Name, stash.Location,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	id, _ := resp.LastInsertId()
+	fmt.Printf("%+v\n", resp)
+
+	res := &CreateStashResponse{
+		ID: id,
+	}
+
+	return res, nil
 }
 
 func (h *Handler) GetAllProducts() ([]*Product, error) {
