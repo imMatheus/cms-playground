@@ -143,19 +143,6 @@ func (h *Handler) GetAllStashes() ([]*Stash, error) {
 	return stashes, nil
 }
 
-func scanIntoStash(rows *sql.Rows) (*Stash, error) {
-	stash := new(Stash)
-	err := rows.Scan(
-		&stash.ID,
-		&stash.Location,
-		&stash.Name,
-		&stash.CreatedAt,
-		&stash.UpdatedAt,
-	)
-
-	return stash, err
-}
-
 func (h *Handler) GetAllProducts() ([]*Product, error) {
 	rows, err := h.db.Query("select * from product")
 	if err != nil {
@@ -193,6 +180,7 @@ func scanIntoProduct(rows *sql.Rows) (*Product, error) {
 		&product.ID,
 		&product.Name,
 		&product.Price,
+		&product.StashId,
 		&product.CreatedAt,
 		&product.UpdatedAt,
 	)
@@ -219,7 +207,10 @@ func (h *Handler) Init() error {
 	// fmt.Println("just created tables")
 
 	// _, err := h.db.Exec("INSERT INTO `stash` (name, location) VALUES ('Mendes store', 'Sweden');")
-	// _, err := h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Red hoodie', 49.99, 1);")
+	// h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Red hoodie', 49.99, 1);")
+	// h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Blue hoodie', 19.99, 1);")
+	// h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Pink shoe', 49.99, 2);")
+	// h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Orange hat', 49.99, 2);")
 
 	// if err != nil {
 	// 	return err

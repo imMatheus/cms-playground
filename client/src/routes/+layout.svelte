@@ -1,5 +1,6 @@
 <script>
 	import Navbar from '$lib/components/Navbar.svelte';
+	import Cart from '$lib/components/cart/Cart.svelte';
 	import '../app.css';
 	import axios from 'axios';
 
@@ -12,5 +13,6 @@
 		<div class="py-10 md:py-14">
 			<slot />
 		</div>
+		<Cart />
 	</div>
 </div>

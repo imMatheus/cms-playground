@@ -15,11 +15,11 @@
 	// });
 </script>
 
-<h1 class="mb-6 font-serif text-7xl font-semibold">Find good products,<br /> near you</h1>
+<h1 class="mb-6 text-7xl font-semibold">Find good products,<br /> near you</h1>
 
-<div class="grid grid-cols-4 md:gap-10 gap-2 bg-secondary">
+<div class="bg-secondary grid grid-cols-4 gap-2 md:gap-10">
 	{#each products as product}
-		<a href="/product/abc">
+		<a href={`/product/${product.id}`}>
 			<div class="bg-primary p-3">{product.name}</div>
 		</a>
 	{/each}
