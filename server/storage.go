@@ -8,10 +8,13 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type Storage interface {
 	GetAllUsers() ([]*User, error)
+	GetUserById(id int64) (*User, error)
+	CreateUser(user CreateUserRequest) (*User, error)
 	GetAllStashes() ([]*Stash, error)
 	CreateStash(stash CreateStashRequest) (*CreateStashResponse, error)
 	GetAllProducts() ([]*Product, error)
@@ -61,11 +64,25 @@ func (h *Handler) createStashesTable() error {
 	return err
 }
 
+func (h *Handler) createSessionsTable() error {
+	query := `CREATE TABLE if not exists session (
+		id int PRIMARY KEY AUTO_INCREMENT,
+		userId int NOT NULL,
+		createdAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+		updatedAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
+	);`
+
+	_, err := h.db.Exec(query)
+	return err
+}
+
 func (h *Handler) createUsersTable() error {
 	query := `CREATE TABLE if not exists user (
 		id int PRIMARY KEY AUTO_INCREMENT,
 		name varchar(255) NOT NULL,
 		image varchar(255) NOT NULL,
+		email varchar(255) NOT NULL,
+		password varchar(255) NOT NULL,
 		createdAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 		updatedAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 	);`
@@ -107,16 +124,93 @@ func (h *Handler) GetAllUsers() ([]*User, error) {
 	return users, nil
 }
 
+func (h *Handler) GetUserById(id int64) (*User, error) {
+	rows, err := h.db.Query("select id, name, email, image, createdAt, updatedAt from user where id = ?", id)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		return scanIntoUser(rows)
+	}
+
+	return nil, fmt.Errorf("account %d not found", id)
+}
+
+func (h *Handler) CreateUser(user CreateUserRequest) (*User, error) {
+	query := `INSERT INTO user
+	(name, image, email, password)
+	values (?, ?, ?, ?)`
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	rows, err := h.db.Exec(
+		query,
+		user.Name,
+		"https://avatars.githubusercontent.com/u/77362975?v=4",
+		user.Email,
+		hashedPassword,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	userId, err := rows.LastInsertId()
+
+	if err != nil {
+		return nil, err
+	}
+
+	finalUser, err := h.GetUserById(userId)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return finalUser, nil
+}
+
 func scanIntoUser(rows *sql.Rows) (*User, error) {
 	user := new(User)
 	err := rows.Scan(
 		&user.ID,
 		&user.Name,
+		&user.Email,
+		&user.Image,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
 
 	return user, err
+}
+
+func (h *Handler) GetSessionByUserId(id int64) (*Session, error) {
+	rows, err := h.db.Query("select * from session where userId = ?", id)
+	if err != nil {
+		return nil, err
+	}
+
+	for rows.Next() {
+		return scanIntoSession(rows)
+	}
+
+	return nil, fmt.Errorf("account %d not found", id)
+}
+
+func scanIntoSession(rows *sql.Rows) (*Session, error) {
+	session := new(Session)
+	err := rows.Scan(
+		&session.ID,
+		&session.UserId,
+		&session.CreatedAt,
+		&session.UpdatedAt,
+	)
+
+	return session, err
 }
 
 func (h *Handler) GetAllStashes() ([]*Stash, error) {
@@ -229,27 +323,29 @@ func (h *Handler) Init() error {
 		return nil
 	}
 
-	// fmt.Println("dropping all tables")
-	// h.db.Exec("DROP TABLE user")
-	// h.db.Exec("DROP TABLE stash")
-	// h.db.Exec("DROP TABLE product")
-	// fmt.Println("dropped all tables")
+	fmt.Println("dropping all tables")
+	h.db.Exec("DROP TABLE user")
+	h.db.Exec("DROP TABLE stash")
+	h.db.Exec("DROP TABLE product")
+	h.db.Exec("DROP TABLE session")
+	fmt.Println("dropped all tables")
 
-	// fmt.Println("creating tables")
-	// h.createUsersTable()
-	// h.createStashesTable()
-	// h.createProductsTable()
-	// fmt.Println("just created tables")
+	fmt.Println("creating tables")
+	h.createUsersTable()
+	h.createStashesTable()
+	h.createProductsTable()
+	h.createSessionsTable()
+	fmt.Println("just created tables")
 
-	// _, err := h.db.Exec("INSERT INTO `stash` (name, location) VALUES ('Mendes store', 'Sweden');")
-	// h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Red hoodie', 49.99, 1);")
-	// h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Blue hoodie', 19.99, 1);")
-	// h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Pink shoe', 49.99, 2);")
-	// h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Orange hat', 49.99, 2);")
+	_, err := h.db.Exec("INSERT INTO `stash` (name, location) VALUES ('Mendes store', 'Sweden');")
+	h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Red hoodie', 49.99, 1);")
+	h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Blue hoodie', 19.99, 1);")
+	h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Pink shoe', 49.99, 2);")
+	h.db.Exec("INSERT INTO `product` (name, price, stashId) VALUES ('Orange hat', 49.99, 2);")
 
-	// if err != nil {
-	// 	return err
-	// }
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

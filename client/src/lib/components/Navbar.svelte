@@ -20,6 +20,7 @@
 					<p>Cart</p>
 					<ShoppingBagIcon size="16" />
 				</button>
+				<a href="/auth/sign-up" class="transition-opacity hover:opacity-75">Sign up</a>
 			</div>
 		</div>
 	</div>

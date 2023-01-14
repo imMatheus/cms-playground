@@ -2,7 +2,7 @@
 	import Navbar from '$lib/components/Navbar.svelte';
 	import Cart from '$lib/components/cart/Cart.svelte';
 	import '../app.css';
-	import axios from 'axios';
+	// import axios from 'axios';
 
 	// axios.defaults.baseURL = 'http://localhost:4000';
 </script>
