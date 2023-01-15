@@ -1,9 +1,25 @@
 <script lang="ts">
 	import axios from 'axios';
+	import { onMount } from 'svelte';
 	let name = '';
 	let password = '';
 	let email = '';
 	let loading = false;
+
+	async function getMe() {
+		try {
+			console.log('hello bitch');
+			const data = await axios.get('http://localhost:4000/me', {
+				withCredentials: true
+			});
+			console.log(data);
+		} catch (error) {
+			console.log('did not make it :(');
+			console.log(error);
+		}
+	}
+
+	onMount(getMe);
 
 	async function signUp() {
 		loading = true;
@@ -15,6 +31,7 @@
 				email
 			},
 			{
+				withCredentials: true,
 				headers: { 'Content-Type': 'text/plain' }
 			}
 		);
@@ -24,6 +41,8 @@
 		console.log(res);
 
 		loading = false;
+
+		getMe();
 	}
 </script>
 

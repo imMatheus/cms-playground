@@ -15,6 +15,8 @@ type Storage interface {
 	GetAllUsers() ([]*User, error)
 	GetUserById(id int64) (*User, error)
 	CreateUser(user CreateUserRequest) (*User, error)
+	CreateSession(userId int64, sessionId []byte) error
+	GetSessionById(sessionId []byte) (int64, error)
 	GetAllStashes() ([]*Stash, error)
 	CreateStash(stash CreateStashRequest) (*CreateStashResponse, error)
 	GetAllProducts() ([]*Product, error)
@@ -63,11 +65,11 @@ func (h *Handler) createStashesTable() error {
 	_, err := h.db.Exec(query)
 	return err
 }
-
 func (h *Handler) createSessionsTable() error {
 	query := `CREATE TABLE if not exists session (
 		id int PRIMARY KEY AUTO_INCREMENT,
 		userId int NOT NULL,
+		sessionId BLOB NOT NULL,
 		createdAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 		updatedAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 	);`
@@ -75,13 +77,12 @@ func (h *Handler) createSessionsTable() error {
 	_, err := h.db.Exec(query)
 	return err
 }
-
 func (h *Handler) createUsersTable() error {
 	query := `CREATE TABLE if not exists user (
 		id int PRIMARY KEY AUTO_INCREMENT,
 		name varchar(255) NOT NULL,
 		image varchar(255) NOT NULL,
-		email varchar(255) NOT NULL,
+		email varchar(255) NOT NULL UNIQUE,
 		password varchar(255) NOT NULL,
 		createdAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
 		updatedAt datetime(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
@@ -188,17 +189,37 @@ func scanIntoUser(rows *sql.Rows) (*User, error) {
 	return user, err
 }
 
-func (h *Handler) GetSessionByUserId(id int64) (*Session, error) {
-	rows, err := h.db.Query("select * from session where userId = ?", id)
+func (h *Handler) CreateSession(userId int64, sessionId []byte) error {
+	_, err := h.db.Exec("INSERT INTO session (userId, sessionId) VALUES (?, ?)", userId, sessionId)
 	if err != nil {
-		return nil, err
+		return err
+	}
+
+	return nil
+}
+
+func (h *Handler) GetSessionById(sessionId []byte) (int64, error) {
+	rows, err := h.db.Query("SELECT userId FROM session WHERE sessionId = ?", sessionId)
+	if err != nil {
+		return 0, err
+	}
+
+	type UserId struct {
+		UserId int64 `json:"userId"`
 	}
 
 	for rows.Next() {
-		return scanIntoSession(rows)
+		userId := new(UserId)
+		err := rows.Scan(
+			&userId.UserId,
+		)
+
+		if err == nil {
+			return userId.UserId, nil
+		}
 	}
 
-	return nil, fmt.Errorf("account %d not found", id)
+	return 0, fmt.Errorf("session %d not found", sessionId)
 }
 
 func scanIntoSession(rows *sql.Rows) (*Session, error) {

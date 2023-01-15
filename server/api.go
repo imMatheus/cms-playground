@@ -1,6 +1,11 @@
 package main
 
 import (
+	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,10 +13,12 @@ import (
 	"os"
 	"strconv"
 
-	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
+
+const SESSION_NAME string = "matusSessionId"
+const userIDKey string = "userID"
 
 type APIServer struct {
 	listenAddr string
@@ -30,6 +37,8 @@ func (s *APIServer) Run() {
 
 	router.HandleFunc("/", makeHTTPHandleFunc(s.handleBase)).Methods(http.MethodGet)
 	router.HandleFunc("/health", makeHTTPHandleFunc(s.handleHealth)).Methods(http.MethodGet)
+	router.HandleFunc("/me", makeHTTPHandleFunc(s.handleGetMe)).Methods(http.MethodGet)
+
 	router.HandleFunc("/users", makeHTTPHandleFunc(s.handleGetUsers)).Methods(http.MethodGet)
 	router.HandleFunc("/sign-up", makeHTTPHandleFunc(s.handleSignUp)).Methods(http.MethodPost)
 	router.HandleFunc("/login", makeHTTPHandleFunc(s.handleLogin)).Methods(http.MethodPost)
@@ -40,11 +49,14 @@ func (s *APIServer) Run() {
 
 	log.Println("Starting APIServer on port ", s.listenAddr)
 
-	// headersOk := handlers.AllowedHeaders([]string{"X-Requested-With"})
-	originsOk := handlers.AllowedOrigins([]string{"*"})
-	methodsOk := handlers.AllowedMethods([]string{"GET", "HEAD", "POST", "PUT", "OPTIONS"})
+	// Create a new CORS handler
+	corsHandler := handlers.CORS(
+		handlers.AllowedOrigins([]string{"http://localhost:5173"}),
+		handlers.AllowedMethods([]string{"GET", "POST", "OPTIONS"}),
+		handlers.AllowCredentials(),
+	)
 
-	http.ListenAndServe(s.listenAddr, handlers.CORS(originsOk, methodsOk)(router))
+	http.ListenAndServe(s.listenAddr, corsHandler(router))
 }
 
 func (s *APIServer) handleBase(w http.ResponseWriter, r *http.Request) error {
@@ -90,6 +102,90 @@ func (s *APIServer) handleGetProductById(w http.ResponseWriter, r *http.Request)
 	return WriteJSON(w, http.StatusOK, product)
 }
 
+func (s *APIServer) handleGetMe(w http.ResponseWriter, r *http.Request) error {
+	fmt.Println("jellooo")
+	// Get the session ID from the cookies
+	cookie, err := r.Cookie(SESSION_NAME)
+	if err != nil {
+		fmt.Println("error lol")
+		fmt.Println(cookie)
+
+		return permissionDenied(w)
+	}
+	fmt.Println(cookie)
+
+	nonce, err := r.Cookie("session-nonce")
+	if err != nil {
+		fmt.Println("error lol")
+		fmt.Println(cookie)
+
+		return permissionDenied(w)
+	}
+	fmt.Println("::::::::::::.::::::::::")
+	fmt.Println(nonce)
+	nonceEncrypted, _ := base64.URLEncoding.DecodeString(nonce.Value)
+
+	// nonceEncrypted := []byte(nonce.Value)
+	fmt.Println(nonce.Value)
+	fmt.Println(nonceEncrypted)
+	// fmt.Println([]byte(nonceEncrypted))
+	fmt.Println("::::::::::::.::::::::::")
+	// Decrypt the session ID
+	sessionIdEncrypted, err := base64.URLEncoding.DecodeString(cookie.Value)
+	if err != nil {
+		fmt.Println("could not decrypt session id")
+		return permissionDenied(w)
+	}
+
+	fmt.Println("session id909090+: ", sessionIdEncrypted)
+
+	secretKey := []byte(os.Getenv("AUTH_SECRET"))
+	block, err := aes.NewCipher(secretKey)
+	if err != nil {
+		fmt.Println("made it to line 130")
+		fmt.Println(err)
+		return permissionDenied(w)
+	}
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		fmt.Println("made it to line 136")
+		fmt.Println(err)
+		return permissionDenied(w)
+	}
+
+	nonceSize := aesgcm.NonceSize()
+
+	if len(sessionIdEncrypted) < nonceSize {
+		return permissionDenied(w)
+	}
+
+	sessionIdEncrypted = sessionIdEncrypted[nonceSize:]
+	fmt.Println("made it lenght of shit")
+	fmt.Println(len(sessionIdEncrypted))
+	fmt.Println(nonceSize)
+	fmt.Println("Made it to line 145")
+	fmt.Println(nonceEncrypted)
+	fmt.Println(sessionIdEncrypted)
+
+	sessionId, err := aesgcm.Open(nil, nonceEncrypted, sessionIdEncrypted, nil)
+
+	fmt.Println("so here is the sessionId at last")
+	fmt.Println(sessionId)
+	fmt.Println(string(sessionId))
+
+	if err != nil {
+		fmt.Println("Made it to line 151")
+		fmt.Println(err)
+		return permissionDenied(w)
+	}
+
+	fmt.Println("sessionId fr this time: ", sessionId)
+
+	fmt.Println("got to last line ffs")
+
+	return WriteJSON(w, http.StatusOK, "cookie")
+}
+
 func (s *APIServer) handleSignUp(w http.ResponseWriter, r *http.Request) error {
 	fmt.Println("sigggnin up")
 	createUserReq := new(CreateUserRequest)
@@ -98,7 +194,7 @@ func (s *APIServer) handleSignUp(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	fmt.Println("maddddeee 22222")
+	fmt.Println("7000000")
 
 	fmt.Println("%+v", createUserReq)
 
@@ -107,8 +203,65 @@ func (s *APIServer) handleSignUp(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
+	sessionId := make([]byte, 16)
+	_, err = rand.Read(sessionId)
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println("stash %+v", user)
+	fmt.Println("secret key and shiiit")
+	secretKey := []byte(os.Getenv("AUTH_SECRET"))
+	fmt.Println(secretKey)
+
+	// Encrypt the session ID using AES
+	block, err := aes.NewCipher(secretKey)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("seeewwwyyy")
+	nonce := make([]byte, 12)
+	_, err = rand.Read(nonce)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("soooo, lest get a user init", nonce)
+
+	aesgcm, err := cipher.NewGCM(block)
+	if err != nil {
+		panic(err)
+	}
+	sessionIdEncrypted := aesgcm.Seal(nil, nonce, sessionId, nil)
+	fmt.Println("??????????????")
+	fmt.Println(sessionIdEncrypted)
+	fmt.Println(nonce)
+	err = s.store.CreateSession(int64(user.ID), sessionIdEncrypted)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("user that was created %+v", user)
+	fmt.Println(base64.URLEncoding.EncodeToString(sessionIdEncrypted))
+	http.SetCookie(w, &http.Cookie{
+		Name:     SESSION_NAME,
+		Value:    base64.URLEncoding.EncodeToString(sessionIdEncrypted),
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteNoneMode,
+	})
+
+	fmt.Println("about to set cookie for nonce")
+	fmt.Println(nonce)
+	fmt.Println(base64.URLEncoding.EncodeToString(nonce))
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     "session-nonce",
+		Value:    base64.URLEncoding.EncodeToString(nonce),
+		Secure:   true,
+		HttpOnly: true,
+		SameSite: http.SameSiteNoneMode,
+	})
 
 	return WriteJSON(w, http.StatusOK, user)
 }
@@ -121,6 +274,61 @@ func (s *APIServer) handleLogin(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return WriteJSON(w, http.StatusOK, products)
+}
+
+func (s *APIServer) validateSession(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// Get the session ID from the cookies
+		cookie, err := r.Cookie(SESSION_NAME)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Decrypt the session ID
+		sessionIdEncrypted, err := base64.URLEncoding.DecodeString(cookie.Value)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		secretKey := []byte(os.Getenv("AUTH_SECRET"))
+		block, err := aes.NewCipher(secretKey)
+		if err != nil {
+			panic(err)
+		}
+
+		aesgcm, err := cipher.NewGCM(block)
+		if err != nil {
+			panic(err)
+		}
+
+		nonceSize := aesgcm.NonceSize()
+		if len(sessionIdEncrypted) < nonceSize {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		nonce, sessionIdEncrypted := sessionIdEncrypted[:nonceSize], sessionIdEncrypted[nonceSize:]
+		sessionId, err := aesgcm.Open(nil, nonce, sessionIdEncrypted, nil)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Lookup the session in the database
+		userId, err := s.store.GetSessionById(sessionId)
+		if err != nil {
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		// Add the user ID to the request context
+		ctx := context.WithValue(r.Context(), userIDKey, userId)
+		next.ServeHTTP(w, r.WithContext(ctx))
+
+	})
 }
 
 func (s *APIServer) handleGetStashes(w http.ResponseWriter, r *http.Request) error {
@@ -154,81 +362,8 @@ func (s *APIServer) handleCreateStash(w http.ResponseWriter, r *http.Request) er
 	return WriteJSON(w, http.StatusOK, stash)
 }
 
-func permissionDenied(w http.ResponseWriter) {
-	WriteJSON(w, http.StatusForbidden, ApiError{Error: "permission denied"})
-}
-
-func createJWT(user *User) (string, error) {
-	claims := &jwt.MapClaims{
-		"expiresAt": 15000,
-		"userId":    user.ID,
-	}
-
-	secret := os.Getenv("JWT_SECRET")
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	fmt.Println("made i t h55555")
-	fmt.Println(token)
-
-	return token.SignedString([]byte(secret))
-}
-
-func withJWTAuth(handlerFunc http.HandlerFunc, s Storage) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("calling JWT auth middleware")
-
-		tokenString := r.Header.Get("x-jwt-token")
-		fmt.Println(tokenString)
-		token, err := validateJWT(tokenString)
-		fmt.Println(token)
-		if err != nil {
-			permissionDenied(w)
-			return
-		}
-
-		if !token.Valid {
-			permissionDenied(w)
-			return
-		}
-
-		// userID, err := getID(r)
-		// if err != nil {
-		// 	permissionDenied(w)
-		// 	return
-		// }
-		// account, err := s.GetAccountByID(userID)
-		// if err != nil {
-		// 	permissionDenied(w)
-		// 	return
-		// }
-
-		claims := token.Claims.(jwt.MapClaims)
-		fmt.Println(claims)
-		// if account.Number != int64(claims["accountNumber"].(float64)) {
-		// 	permissionDenied(w)
-		// 	return
-		// }
-
-		if err != nil {
-			WriteJSON(w, http.StatusForbidden, ApiError{Error: "invalid token"})
-			return
-		}
-
-		handlerFunc(w, r)
-	}
-}
-
-func validateJWT(tokenString string) (*jwt.Token, error) {
-	secret := os.Getenv("JWT_SECRET")
-
-	return jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		// Don't forget to validate the alg is what you expect:
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
-		}
-
-		// hmacSampleSecret is a []byte containing your secret, e.g. []byte("my_secret_key")
-		return []byte(secret), nil
-	})
+func permissionDenied(w http.ResponseWriter) error {
+	return WriteJSON(w, http.StatusForbidden, ApiError{Error: "permission denied"})
 }
 
 func WriteJSON(w http.ResponseWriter, status int, v any) error {
@@ -245,6 +380,7 @@ type ApiError struct {
 
 func makeHTTPHandleFunc(f apiFunc) http.HandlerFunc {
 	fmt.Println("888888888888888888")
+
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := f(w, r); err != nil {
 			WriteJSON(w, http.StatusBadRequest, ApiError{Error: err.Error()})

@@ -53,6 +53,7 @@ type Product struct {
 type Session struct {
 	ID        int       `json:"id"`
 	UserId    int       `json:"userId"`
+	SessionId int       `json:"sessionId"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
